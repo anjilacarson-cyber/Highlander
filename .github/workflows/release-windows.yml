@@ -1,4 +1,5 @@
-name: Build and publish Windows installer
+
+name: Build and publish Highlander Windows installer
 
 on:
   workflow_dispatch:
@@ -12,6 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -27,27 +29,28 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build Windows executable
+      - name: Build Highlander executable
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name GeminiDesktopOperator --collect-all google.genai --collect-all keyring src/main.py
+          pyinstaller --noconfirm --clean --windowed --onefile --name Highlander --collect-all google.genai --collect-all keyring src/main.py
 
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
 
-      - name: Build installer
+      - name: Build Highlander installer
         run: |
-          mkdir release
-          iscc installer/GeminiDesktopOperator.iss
+          New-Item -ItemType Directory -Force -Path release
+          iscc installer/Highlander.iss
+        shell: pwsh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Gemini-Desktop-Operator-Windows-Installer
-          path: release/Gemini_Desktop_Operator_Setup.exe
+          name: Highlander-Windows-Installer
+          path: release/Highlander_Setup.exe
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: release/Gemini_Desktop_Operator_Setup.exe
+          files: release/Highlander_Setup.exe

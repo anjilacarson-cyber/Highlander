@@ -16,9 +16,10 @@ from google import genai
 from google.genai import types
 import keyring
 
-APP_NAME = "Gemini Desktop Operator"
+APP_NAME = "Highlander"
 APP_VERSION = "1.0.0"
-KEYRING_SERVICE = "GeminiDesktopOperator"
+KEYRING_SERVICE = "Highlander"
+LEGACY_KEYRING_SERVICE = "GeminiDesktopOperator"
 KEYRING_USERNAME = "gemini_api_key"
 DEFAULT_MODEL = "gemini-3.8-flash"
 
@@ -26,7 +27,7 @@ pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.03
 
 
-class OperatorApp:
+class HighlanderApp:
     def __init__(self, root):
         self.root = root
         self.root.title(f"{APP_NAME} {APP_VERSION}")
@@ -64,7 +65,7 @@ class OperatorApp:
 
         header = ttk.Frame(outer)
         header.pack(fill="x")
-        ttk.Label(header, text="Gemini Desktop Operator", style="Header.TLabel").pack(side="left")
+        ttk.Label(header, text="Highlander", style="Header.TLabel").pack(side="left")
         ttk.Label(header, text=f"v{APP_VERSION}", style="Sub.TLabel").pack(side="right")
 
         ttk.Label(
@@ -87,8 +88,11 @@ class OperatorApp:
         modelrow.pack(fill="x", pady=(8, 0))
         ttk.Label(modelrow, text="Model", width=16).pack(side="left")
         ttk.Entry(modelrow, textvariable=self.model, width=30).pack(side="left")
-        ttk.Label(modelrow, text="API key is stored in Windows Credential Manager via keyring.",
-                  style="Sub.TLabel").pack(side="left", padx=10)
+        ttk.Label(
+            modelrow,
+            text="API key is stored in Windows Credential Manager via keyring.",
+            style="Sub.TLabel"
+        ).pack(side="left", padx=10)
 
         task = ttk.LabelFrame(outer, text="Task instructions", padding=10)
         task.pack(fill="x", pady=(0, 10))
@@ -113,8 +117,9 @@ class OperatorApp:
         ttk.Entry(row2, textvariable=self.target_file, width=28).pack(side="left")
         ttk.Button(row2, text="Create/open target file", command=self.create_open_target).pack(side="left", padx=(8, 0))
         ttk.Label(row2, text="Characters per second", padding=(16, 0, 4, 0)).pack(side="left")
-        self.speed_scale = ttk.Scale(row2, from_=1, to=10, orient="horizontal",
-                                     command=self._on_speed)
+        self.speed_scale = ttk.Scale(
+            row2, from_=1, to=10, orient="horizontal", command=self._on_speed
+        )
         self.speed_scale.set(5)
         self.speed_scale.pack(side="left", fill="x", expand=True, padx=6)
         self.speed_label = ttk.Label(row2, text="5 chars/sec", width=13)
@@ -127,23 +132,39 @@ class OperatorApp:
         ttk.Label(mousebox, text="Screen Y").pack(side="left")
         ttk.Entry(mousebox, textvariable=self.mouse_y, width=7).pack(side="left", padx=(4, 12))
         ttk.Button(mousebox, text="Move pointer", command=self.move_pointer).pack(side="left")
-        ttk.Button(mousebox, text="Left click", command=lambda: self.click_pointer("left")).pack(side="left", padx=6)
-        ttk.Button(mousebox, text="Right click", command=lambda: self.click_pointer("right")).pack(side="left")
+        ttk.Button(
+            mousebox, text="Left click", command=lambda: self.click_pointer("left")
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            mousebox, text="Right click", command=lambda: self.click_pointer("right")
+        ).pack(side="left")
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=(0, 10))
-        ttk.Button(actions, text="Generate with Gemini", style="Action.TButton",
-                   command=self.generate).pack(side="left")
-        ttk.Button(actions, text="Create/open workspace", style="Action.TButton",
-                   command=self.open_workspace).pack(side="left", padx=6)
-        ttk.Button(actions, text="Capture screen", style="Action.TButton",
-                   command=self.capture_screen).pack(side="left")
-        ttk.Button(actions, text="Analyze screen with Gemini", style="Action.TButton",
-                   command=self.analyze_screen).pack(side="left", padx=6)
-        ttk.Button(actions, text="Type visibly", style="Action.TButton",
-                   command=self.start_typing).pack(side="left")
-        ttk.Button(actions, text="STOP", style="Action.TButton",
-                   command=self.stop_typing).pack(side="right")
+        ttk.Button(
+            actions, text="Generate with Gemini", style="Action.TButton",
+            command=self.generate
+        ).pack(side="left")
+        ttk.Button(
+            actions, text="Create/open workspace", style="Action.TButton",
+            command=self.open_workspace
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            actions, text="Capture screen", style="Action.TButton",
+            command=self.capture_screen
+        ).pack(side="left")
+        ttk.Button(
+            actions, text="Analyze screen with Gemini", style="Action.TButton",
+            command=self.analyze_screen
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            actions, text="Type visibly", style="Action.TButton",
+            command=self.start_typing
+        ).pack(side="left")
+        ttk.Button(
+            actions, text="STOP", style="Action.TButton",
+            command=self.stop_typing
+        ).pack(side="right")
 
         panes = ttk.Panedwindow(outer, orient="horizontal")
         panes.pack(fill="both", expand=True)
@@ -180,6 +201,11 @@ class OperatorApp:
     def _load_saved_key(self):
         try:
             saved = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+            if not saved:
+                # Migrate a key saved by the earlier Gemini Desktop Operator version.
+                saved = keyring.get_password(LEGACY_KEYRING_SERVICE, KEYRING_USERNAME)
+                if saved:
+                    keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, saved)
             if saved:
                 self.api_key.set(saved)
                 self._set_status("A Gemini key was found in Windows Credential Manager.")
@@ -217,7 +243,9 @@ class OperatorApp:
         self.speed_label.configure(text=f"{v} chars/sec")
 
     def browse_folder(self):
-        folder = filedialog.askdirectory(initialdir=self.project_dir.get() or str(Path.home()))
+        folder = filedialog.askdirectory(
+            initialdir=self.project_dir.get() or str(Path.home())
+        )
         if folder:
             self.project_dir.set(folder)
 
@@ -237,7 +265,9 @@ class OperatorApp:
             messagebox.showwarning("Missing information", "Enter a task and target filename.")
             return
         self._set_status("Sending coding request to Gemini…")
-        threading.Thread(target=self._generate_worker, args=(prompt, filename), daemon=True).start()
+        threading.Thread(
+            target=self._generate_worker, args=(prompt, filename), daemon=True
+        ).start()
 
     def _generate_worker(self, prompt, filename):
         try:
@@ -262,7 +292,6 @@ class OperatorApp:
         except Exception as exc:
             self.events.put(("error", f"Gemini request failed: {exc}"))
 
-
     def _target_path(self):
         folder = Path(self.project_dir.get()).expanduser().resolve()
         name = self.target_file.get().strip()
@@ -285,10 +314,16 @@ class OperatorApp:
             x, y = int(self.mouse_x.get()), int(self.mouse_y.get())
             width, height = pyautogui.size()
             if not (0 <= x < width and 0 <= y < height):
-                raise ValueError(f"Coordinates must be within this screen: 0–{width-1}, 0–{height-1}.")
-            if not messagebox.askyesno("Move mouse", f"Move the pointer to screen position ({x}, {y})?"):
+                raise ValueError(
+                    f"Coordinates must be within this screen: 0–{width-1}, 0–{height-1}."
+                )
+            if not messagebox.askyesno(
+                "Move mouse", f"Move the pointer to screen position ({x}, {y})?"
+            ):
                 return
-            threading.Thread(target=lambda: pyautogui.moveTo(x, y, duration=0.5), daemon=True).start()
+            threading.Thread(
+                target=lambda: pyautogui.moveTo(x, y, duration=0.5), daemon=True
+            ).start()
             self._set_status(f"Moving pointer to ({x}, {y}).")
         except Exception as exc:
             messagebox.showerror("Mouse control error", str(exc))
@@ -296,16 +331,21 @@ class OperatorApp:
     def click_pointer(self, button):
         if not messagebox.askyesno(
             "Confirm mouse click",
-            f"Send a {button} click at the current pointer position? Make sure the intended window is active."
+            f"Send a {button} click at the current pointer position? "
+            "Make sure the intended window is active."
         ):
             return
-        threading.Thread(target=lambda: pyautogui.click(button=button), daemon=True).start()
+        threading.Thread(
+            target=lambda: pyautogui.click(button=button), daemon=True
+        ).start()
         self._set_status(f"Sent {button} click at current pointer position.")
 
     def capture_screen(self):
         try:
             self.last_screenshot = ImageGrab.grab()
-            self._set_status(f"Captured screen: {self.last_screenshot.width} × {self.last_screenshot.height}")
+            self._set_status(
+                f"Captured screen: {self.last_screenshot.width} × {self.last_screenshot.height}"
+            )
             preview = tk.Toplevel(self.root)
             preview.title("Screen capture preview")
             preview.geometry("850x600")
@@ -315,7 +355,10 @@ class OperatorApp:
             label = ttk.Label(preview, image=photo)
             label.image = photo
             label.pack(padx=10, pady=10)
-            ttk.Label(preview, text="This capture stays local unless you choose Analyze screen with Gemini.").pack()
+            ttk.Label(
+                preview,
+                text="This capture stays local unless you choose Analyze screen with Gemini."
+            ).pack()
         except Exception as exc:
             messagebox.showerror("Capture failed", str(exc))
 
@@ -362,7 +405,9 @@ class OperatorApp:
         ):
             return
         self.stop_event.clear()
-        self.typing_thread = threading.Thread(target=self._typing_worker, args=(content,), daemon=True)
+        self.typing_thread = threading.Thread(
+            target=self._typing_worker, args=(content,), daemon=True
+        )
         self.typing_thread.start()
 
     def _typing_worker(self, content):
@@ -370,7 +415,9 @@ class OperatorApp:
             if self.stop_event.is_set():
                 self.events.put(("status", "Typing cancelled."))
                 return
-            self.events.put(("status", f"Switch to the target editor — typing starts in {remaining}s"))
+            self.events.put(
+                ("status", f"Switch to the target editor — typing starts in {remaining}s")
+            )
             time.sleep(1)
         cps = max(1, min(10, int(self.speed.get())))
         interval = 1.0 / cps
@@ -386,12 +433,14 @@ class OperatorApp:
                 elif ch == "\r":
                     continue
                 else:
-                    # write() emits keyboard events; interval is controlled per character below.
                     pyautogui.write(ch, interval=0)
                 time.sleep(interval)
             self.events.put(("status", "Typing finished. Save the file in your editor."))
         except pyautogui.FailSafeException:
-            self.events.put(("status", "Emergency stop triggered by moving the pointer to the top-left corner."))
+            self.events.put((
+                "status",
+                "Emergency stop triggered by moving the pointer to the top-left corner."
+            ))
         except Exception as exc:
             self.events.put(("error", f"Typing interrupted: {exc}"))
 
@@ -406,13 +455,15 @@ class OperatorApp:
                 if kind == "generated":
                     self.code.delete("1.0", "end")
                     self.code.insert("1.0", value)
-                    self._set_status(f"Gemini generated {len(value)} characters. Review before typing.")
+                    self._set_status(
+                        f"Gemini generated {len(value)} characters. Review before typing."
+                    )
                 elif kind == "analysis":
                     self._set_status("Gemini screen analysis received.")
                     messagebox.showinfo("Gemini screen analysis", value[:12000])
                 elif kind == "error":
                     self._set_status("An error occurred.")
-                    messagebox.showerror("Operator error", value)
+                    messagebox.showerror("Highlander error", value)
                 else:
                     self._set_status(value)
         except queue.Empty:
@@ -422,7 +473,7 @@ class OperatorApp:
 
 def main():
     root = tk.Tk()
-    app = OperatorApp(root)
+    app = HighlanderApp(root)
     root.mainloop()
 
 
